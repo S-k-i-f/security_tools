@@ -1,201 +1,187 @@
 """
-Gerador e Avaliador de Senhas: Módulo que gera senhas aleatórias fortes com ferramenta avaliadora de senhas.
+Módulo: Gerador e Avaliador de Senhas
 
-O script fornece uma funcionalidade que gera senhas aleatórias
-utilizando a biblioteca random (aleatoriedade) e string (força) com base
-na complexidade e oferece uma ferramenta para avaliar a senha criada ou uma
-existente fornecendo sugestões de melhoria
+Este módulo gera senhas aleatórias seguras e fornece uma ferramenta
+para avaliar senhas existentes.
+
+    O que há de novo:
+      • O módulo random foi substituído pela secrets, agora são gerados valores aleatórios e criptografados.
+      • o módulo getpass foi adicionado para maior privacidade do usuário durante a interação com o programa.
+      • Comprimento máximo aumentado para 32.
+      • Novo nível na avaliação de senhas.
+      • Avaliação melhorada para encorajar senhas maiores que 12 caracteres.
 """
 
 import string
-import random
+import secrets
+import getpass
 
-# Definição dos caracteres: Caracteres principais que serão usados para a avalição de força das senhas.
-CARACTERES_TEXTO = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-CARACTERES_NUMEROS = "0123456789"
-CARACTERES_ESPECIAIS = "!@#$%^&*()-_=+[]{}|;:,.<>?/"
-
-# Controle de comprimento: Defini que uma senha não pode ter menos que 8 ou mais que 16 caracteres.
+# Controle de comprimento: Nesta atualização, o limite máximo de caracteres agora é 32 para garantir mais segurança.
 COMPRIMENTO_MINIMO = 8
-COMPRIMENTO_MAXIMO = 16
+COMPRIMENTO_MAXIMO = 32
+
 
 def gerar_senha(tamanho):
     """
-    Ferramenta que gera uma senha aleatória com caracteres variados.
+    Gera uma senha segura de comprimento usando a variável "tamanho".
 
         Características:
-          • A senha aleatória combina letras maiúculas e minúsculas, números e caracteres especiais.
-          • Valida o comprimento da senha antes de cria-la.
-          • Gera um erro se o tmanaho for inválido e se não puder ser convertido para inteiro.
+          • Valida que "tamanho" é inteiro, que atende os requisitos de comprimento
+          e retorna "None" em caso de entrada inválida.
+          • Garante pelo menos um caractere de cada tipo de acordo com o tamanho requisitado.
+          • Utiliza algoritmos para evitar que a previsilibidade da senha.
     """
 
     try:
         tamanho = int(tamanho)
-        
-        if tamanho < COMPRIMENTO_MINIMO:
-            print(f"❌ A senha deve conter pelo menos {COMPRIMENTO_MINIMO} caracteres.")
-            return None
 
-        if tamanho > COMPRIMENTO_MAXIMO:
-            print(f"❌ A senha deve conter no máximo {COMPRIMENTO_MAXIMO} caracteres.")
+        if not (COMPRIMENTO_MINIMO <= tamanho <= COMPRIMENTO_MAXIMO):
+            print(f"❌ O tamanho da senha deve ter entre {COMPRIMENTO_MINIMO} e {COMPRIMENTO_MAXIMO} caracteres.")
 
             return None
 
-        # Combinação: Une os caracteres para que a senha atenda todos os requisitos de força.
-        todos_caracteres = CARACTERES_TEXTO + CARACTERES_NUMEROS + CARACTERES_ESPECIAIS
+        # Categorias: define as categorias de caracteres minúsculos, maiúsculos, números e carecteres especiais.
+        minusculas = string.ascii_lowercase
+        maiusculas = string.ascii_uppercase
+        digitos = string.digits
+        especiais = "!@#$%^&*()-_=+[]{}|;:,.<>?/"
 
-        # Geração da senha: Gera a senha escolhendo os caracteres aleatoriamente.
-        senha = ''.join(random.choice(todos_caracteres) for _ in range(tamanho))
+        # Implementação das categorias: Garante que a senha tenha uma categoria de cada se houver espaço.
+        caracteres = [
+            secrets.choice(minusculas),
+            secrets.choice(maiusculas),
+            secrets.choice(digitos),
+            secrets.choice(especiais)
+        ]
 
-        return senha
-    
+        # Aelatoriedade: preenche o restante da senha com uma mistura de tudo e a embaralha para não ser previsível.
+        categorias = minusculas + maiusculas + digitos + especiais
+        tamanho_total = tamanho - len(caracteres)
+        senha_restante = [secrets.choice(categorias)
+                            for _ in range(tamanho_total)]
+
+        embaralhar = caracteres + senha_restante
+        secrets.SystemRandom().shuffle(embaralhar)
+
+        return "".join(embaralhar)
+
     except ValueError:
-        print("❌ Digite um número válido!")
+        print("❌ Digite um número inteiro válido!")
 
         return None
 
+
 def avaliar_senha(senha):
     """
-    Função que avalia a força da senha e sugere melhorias.
+    Avalia a força da senha e retorna o nivel e sugestoes de melhoria.
 
-        Características:
-          • Analisa os critérios de segurança da senha (comprimento e tipos de caracteres).
-          • Retorna o nível da força com feedback de para melhorias.
+    Características:
+      • 
+    Critérios avaliados (cada um acrescenta 1 ponto):
+    - Comprimento >= 12
+    - Contém letras minúsculas
+    - Contém letras maiúsculas
+    - Contém dígitos
+    - Contém caracteres especiais
 
-        Tupla de dois elementos:
-          • String com os níveis de força (fraco, médio e forte).
-          • Lista de sugestões de melhoria.
+    Níveis retornados (string):
+    - 🔴 Inaceitável (muito curta)
+    - 🔴 Fraca
+    - 🟡 Média (pode ser melhorada)
+    - 🟢 Forte (segura)
+
+    Retorna:
+    - nivel (str), sugestoes (list[str])
     """
-
-    forca = 0
+    pontuacao = 0
     feedback = []
 
-    # Verificação do comprimento: verifica o comprimento mínimo.
-    if len(senha) >= COMPRIMENTO_MINIMO:
-        forca += 1
+    # Critérios de avaliação
+    criterios = [
+        (len(senha) >= 12, "Aumentar para 12+ caracteres para maior segurança."),
+        (any(c.islower() for c in senha), "Adicionar letras minúsculas."),
+        (any(c.isupper() for c in senha), "Adicionar letras maiúsculas."),
+        (any(c.isdigit() for c in senha), "Adicionar números."),
+        (any(c in string.punctuation or c in "!@#$%^&*()-_=+[]{}|;:,.<>?/" for c in senha),
+         "Adicionar caracteres especiais.")
+    ]
+
+    for atingido, sugestao in criterios:
+        if atingido:
+            pontuacao += 1
+        else:
+            feedback.append(sugestao)
+
+    # Níveis de força: Nesta atualização foi criado um novo nível para maior precisão na avaliação.
+    if len(senha) < COMPRIMENTO_MINIMO:
+        nivel = "🔴 Inaceitável (Muito curta)"
+    elif pontuacao <= 2:
+        nivel = "🔴 Fraca"
+    elif pontuacao <= 4:
+        nivel = "🟡 Média (Pode ser melhorada)"
     else:
-        feedback.append(f"Aumente sua senha para pelo menos {COMPRIMENTO_MINIMO} caracteres.")
+        nivel = "🟢 Forte (Segura)"
 
-    # Verificação de minúsculas: Verifica se tem letras minúsculas.
-    if any(char in CARACTERES_TEXTO[:26] for char in senha):
-        forca += 1
-    else:
-        feedback.append("Adicionar letras minúsculas.")
-
-    # Vericação de letras maiúsculas: Verifica se tem letras maiúsculas.
-    if any(char in CARACTERES_TEXTO[26:] for char in senha):
-        forca += 1
-    else:
-        feedback.append("Adicioar letras maiúsculas.")
-
-    # Verficação de números: Verifica se tem números.
-    if any(char in CARACTERES_NUMEROS for char in senha):
-        forca += 1
-    else:
-        feedback.append("Adicionar números.")
-
-    # Verficação de especiais: Verifica se tem caracteres especiais.
-    if any(char in CARACTERES_ESPECIAIS for char in senha):
-        forca += 1
-    else:
-        feedback.append("Adicionar caracteres especiais")
-
-    # Níveis de força: Determina o nível de força baseado na pontuação.
-    if forca <= 2:
-        nivel = "🔴 Fraca!"
-
-    elif forca <= 3:
-        nivel = "🟡 Pode melhorar..."
-
-    else:
-        nivel = "🟢 Forte!"
-    
     return nivel, feedback
 
 def menu_principal():
     """
-    Função que exibe o menu principal e interage com o usuário.
+    Função que exibe o menu principal interativo.
     
-    Loop que apresenta um menu com as opções de gerar uam senha, avaliar uma senha ou sair do programa.
+        Loop que apresenta um menu com as opções para:
+          • Gerar uam senha.
+          • Avaliar uma senha.
+          • Sair do programa.
     """
 
     while True:
         print("-" * 71)
-        print("                        Gerador e Avaliador de Senhas")
+        print("                      Gerador e Avaliador de Senhas")
         print("-" * 71)
         print("O que deseja fazer?")
         print("    1. Gerar uma senha aleatória")
         print("    2. Avaliar uma senha")
         print("    3. Sair")
         print("-" * 71)
-        
+
         opcao = input("Escolha uma opção (1, 2 ou 3): ").strip()
-        
+
         if opcao == "1":
-            gerar_senha_menu()
+            tamanho = input(f"Tamanho da senha ({COMPRIMENTO_MINIMO}-{COMPRIMENTO_MAXIMO}): ")
+            senha = gerar_senha(tamanho)
+
+            if senha:
+                print(f"✅ Sua nova senha: {senha}")
+                nivel, _ = avaliar_senha(senha)
+                print(f"📊 Força: {nivel}")
 
         elif opcao == "2":
-            avaliar_senha_menu()
+            senha_input = getpass.getpass("Digite ou crie uma nova senha: ")
+
+            if not senha_input:
+                print("❌ A senha nãoo pode estar vazia.")
+
+                continue
+
+            nivel, sugestoes = avaliar_senha(senha_input)
+            print(f"📊 Resultado: {nivel}")
+
+            if sugestoes:
+                print("💡 Sugestões para melhorar:")
+
+                for s in sugestoes:
+                    print(f"    • {s}")
+
+            else:
+                print("🎉 Sua senha é segura!")
 
         elif opcao == "3":
             print("Até mais...")
 
             break
+
         else:
-            print("❌ Opção inválida! Tente novamente.")
-
-def gerar_senha_menu():
-    """
-    Submenu que gera a nova senha.
-
-    Solicita ao usuário o tamanho da senha desejada, gera a senha 
-    e exibe o resultado com informações sobre o comprimento.
-    """
-
-    print("-" * 71)
-    print("                        Gere uma Senha Aleatória")
-    print("-" * 71)
-    print(f"O tamanho deve ser entre {COMPRIMENTO_MINIMO} e {COMPRIMENTO_MAXIMO} caracteres.")
-    
-    tamanho = input(f"Quantos caracteres você deseja? ")
-    
-    senha = gerar_senha(tamanho)
-    
-    if senha:
-        print(f"✅ Sua nova senha: {senha}")
-        print(f"📊 Comprimento: {len(senha)} caracteres")
-
-def avaliar_senha_menu():
-    """
-    Submenu para avaliar uma senha.
-
-    Solicita uma senha do usuário, avalia sua força e exibe
-    o resultado com sugestões de melhoria se necessário.
-    """
-    print("-" * 71)
-    print("                        Avalie sua Senha")
-    print("-" * 71)
-    
-    senha = input("Digite ou crie uma nova senha: ")
-    
-    if len(senha) == 0:
-        print("❌ A senha não pode estar vazia!")
-
-        return
-    
-    nivel, feedback = avaliar_senha(senha)
-    
-    print(f"📊 Resultado: {nivel}")
-    print(f"📏 Comprimento: {len(senha)} caracteres")
-    
-    if feedback:
-        print("💡 Sugestões para melhorar:")
-
-        for sugestao in feedback:
-            print(sugestao)
-
-    else:
-        print("🎉 Sua senha é segura!")
+            print("❌ Opção inválida, Tente novamente.")
 
 if __name__ == "__main__":
     menu_principal()
