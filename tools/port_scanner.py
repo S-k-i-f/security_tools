@@ -1,44 +1,81 @@
 """
-Scanner Simples de Portas TCP: Módulo de varredura de portas abertas em um host.
+Scanner de Portas TCP 
 
-O scanner utiliza a biblioteca socket para criar conexões TCP e tenta
-conectar a cada porta no intervalo especificado. Portas abertas são
-identificadas quando a conexão é bem-sucedida.
+Módulo para varredura de portas TCP abertas em um host.
 
-Nota: Este script usa um timeout curto (50ms) para acelerar o processo
-de varredura.
+    O que há de novo:
+      • Módulo threading implementado para aumentar otmização
+      e a velocidade de varredura.
+      • Faz uma tentativa de captura de banner (banner grabbing).
+      • Número máximo de portas aumentado para 2048.
 """
 
 import socket
+import threading
 
 # Configurações da rede: Defini o IP do alvo e a quantidade de portas que podem ser escaneadas.
-ALVO = "000.000.00.00"
+IP = "000.000.00.00"
 PORTA_INICIAL = 1
-PORTA_FINAL = 1024
+PORTA_FINAL = 2048
 
-"""
-Configurações do Scanner:
+# Controle de threads: nesta atualização, o número de conexões simultâneas são limitadas para não sobrecarregar a rede.
+MAX_THREADS = 100
+controle = threading.Semaphore(MAX_THREADS)
 
-O scan começa a varredura por uma porta específica (1-1024) no host do IP.
+def scan_porta(porta):
+    """
+    O scan começa a varredura por uma porta específica (1-2048) no host do IP.
     
         Características:
-          • Itera através de todas as portas em um intervalo específico.
-          • AF_INET define endereços IPv4 e SOCO_STREAM define o socket como TCP.
-          • Define um timeout curto para deixar a verredura mais rápida.
-"""
-print(f"Escaneando o alvo: {ALVO}")
-print(f"Intervalo de portas: {PORTA_INICIAL} - {PORTA_FINAL}\n")
+          • Usa timeout de 1 segundo para não travar em portas não responsivas.
+          • Tenta fazer o banner grabbing se a porta estiver aberta.
+          • Usa semáforo para limitar várias threads ao mesmo tempo.
+    """
+    with controle:
 
-for porta in range(PORTA_INICIAL, PORTA_FINAL + 1):
+        try:
+            cliente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+            cliente.settimeout(1.0)
+            
+            resultado = cliente.connect_ex((IP, porta))
 
-    cliente = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    
-    cliente.settimeout(0.05)
+            if resultado == 0:
+                try:
+                    banner = cliente.recv(2048).decode().strip()
+                    servico = f" | Serviço: {banner}" if banner else " | Serviço: Desconhecido"
 
-    # Tentativa de conexão: Tenta estabeler conexão com uma porta e retorna 0 para bem sucedido e outro número para falha
-    if cliente.connect_ex((ALVO, porta)) == 0:
-        print(f"A Porta {porta} está aberta")
-    
-    # Execução: Fecha o socket após cada tentativa.
-    cliente.close()
-print(f"\n[*] Varredura finalizada.")
+                except:
+                    servico = ""
+                
+                print(f"A Porta {porta} está aberta {servico}")
+            
+            cliente.close()
+        except Exception:
+            pass
+
+def iniciar_scanner():
+    """
+    Inicia e executa a varredura das portas no intervalo configurado
+    e cria uma thread para cada porta.
+    """
+    print("-" * 71)
+    print(f"Alvo: {IP}")
+    print(f"Escaneando portas {PORTA_INICIAL} até {PORTA_FINAL}...")
+    print("-" * 71)
+
+    threads = []
+
+    # Loop para criar as threads: Uma thread só é criada quando uma anterior termina de checar uma porta.
+    for porta in range(PORTA_INICIAL, PORTA_FINAL + 1):
+        t = threading.Thread(target=scan_porta, args=(porta,))
+        threads.append(t)
+        t.start()
+
+    for t in threads:
+        t.join()
+
+    print("-" * 71)
+    print("Varredura concluída!")
+
+if __name__ == "__main__":
+    iniciar_scanner()
